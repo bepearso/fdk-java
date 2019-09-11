@@ -250,6 +250,7 @@ public class FnTestingRuleTest {
         Assertions.assertThat(capturedBodies.get(0)).isEqualTo("FOO BAR".getBytes());
     }
 
+
     // TODO move this to HTTP gateway
 //    @Test
 //    public void shouldLeaveQueryParamtersOffIfNotSpecified() {

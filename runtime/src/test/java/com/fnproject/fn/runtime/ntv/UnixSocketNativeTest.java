@@ -244,6 +244,8 @@ public class UnixSocketNativeTest {
         CountDownLatch ready = new CountDownLatch(1);
         File serverSocket = createSocketFile();
         CompletableFuture<Boolean> result = runServerLoop(() -> {
+
+
             int ss = UnixSocketNative.socket();
             try {
                 UnixSocketNative.bind(ss, serverSocket.getAbsolutePath());

@@ -10,12 +10,35 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>testing-core</artifactId>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>9</source>
+                    <target>9</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
-  <dependencies>
+    <dependencies>
     <dependency>
       <groupId>com.fnproject.fn</groupId>
       <artifactId>runtime</artifactId>
     </dependency>
+    <dependency>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy</artifactId>
+      <version>1.10.1</version>
+    </dependency>
+      <dependency>
+          <groupId>com.oracle.oci.sdk</groupId>
+          <artifactId>oci-java-sdk-common</artifactId>
+          <version>1.6.2</version>
+          <scope>compile</scope>
+      </dependency>
   </dependencies>
 
 
