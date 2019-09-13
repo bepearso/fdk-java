@@ -14,11 +14,48 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 
 
 public class FakeAuthenticationDetailsProvider extends AbstractRequestingAuthenticationDetailsProvider implements RegionProvider, RefreshableOnNotAuthenticatedProvider<String> {
+
+    static final KeyPair fakePrivateKey;
+
+    static {
+        KeyPairGenerator kpg = null;
+        try {
+            kpg = KeyPairGenerator.getInstance("RSA");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        fakePrivateKey = kpg.generateKeyPair();
+
+    }
+
+    static SessionKeySupplier keySupplier = new SessionKeySupplier() {
+        @Override
+        public KeyPair getKeyPair() {
+            return fakePrivateKey;
+        }
+
+        @Override
+        public RSAPublicKey getPublicKey() {
+            return (RSAPublicKey) fakePrivateKey.getPublic();
+        }
+
+        @Override
+        public RSAPrivateKey getPrivateKey() {
+            return (RSAPrivateKey) fakePrivateKey.getPrivate();
+        }
+
+        @Override
+        public void refreshKeys() {
+
+        }
+    };
 
     String configFilePath = "~/.oci/config";
     String profile = "DEFAULT";
@@ -34,65 +71,44 @@ public class FakeAuthenticationDetailsProvider extends AbstractRequestingAuthent
     String keyID;
 
 
-
-    public FakeAuthenticationDetailsProvider() throws IOException{
-        super(null, new SessionKeySupplier() {
-                    @Override
-                    public KeyPair getKeyPair() {
-                        return null;
-                    }
-
-                    @Override
-                    public RSAPublicKey getPublicKey() {
-                        return null;
-                    }
-
-                    @Override
-                    public RSAPrivateKey getPrivateKey() {
-                        return null;
-                    }
-
-                    @Override
-                    public void refreshKeys() {
-
-                    }
-                });
+    public FakeAuthenticationDetailsProvider() throws IOException {
+        super(null, keySupplier);
 
 //            ConfigFile configFile = ConfigFileReader.parse(configFilePath, profile);
-                ConfigFile configFile = ConfigFileReader.parseDefault(profile);
+        ConfigFile configFile = ConfigFileReader.parseDefault(profile);
 
-            this.fingerprint =
-                    Preconditions.checkNotNull(
-                            configFile.get("fingerprint"), "missing fingerprint in config");
-            this.tenantId =
-                    Preconditions.checkNotNull(configFile.get("tenancy"), "missing tenancy in config");
-            this.userId =
-                    Preconditions.checkNotNull(configFile.get("user"), "missing user in config");
-            this.pemFilePath =
-                    Preconditions.checkNotNull(
-                            configFile.get("key_file"), "missing key_file in config");
-            // pass phrase is optional
-            this.passPhrase = configFile.get("pass_phrase");
+        this.fingerprint =
+                Preconditions.checkNotNull(
+                        configFile.get("fingerprint"), "missing fingerprint in config");
+        this.tenantId =
+                Preconditions.checkNotNull(configFile.get("tenancy"), "missing tenancy in config");
+        this.userId =
+                Preconditions.checkNotNull(configFile.get("user"), "missing user in config");
+        this.pemFilePath =
+                Preconditions.checkNotNull(
+                        configFile.get("key_file"), "missing key_file in config");
+        // pass phrase is optional
+        this.passPhrase = configFile.get("pass_phrase");
 
-            this.privateKeySupplier = new SimplePrivateKeySupplier(pemFilePath);
+        this.privateKeySupplier = new SimplePrivateKeySupplier(pemFilePath);
 
 
-            // region is optional, for backwards compatibility, if region is not known, log an error and continue.
-            // the same file may be used by other tools, where the region can be a newly launched region value
-            // that is not supported by the SDK yet.
+        // region is optional, for backwards compatibility, if region is not known, log an error and continue.
+        // the same file may be used by other tools, where the region can be a newly launched region value
+        // that is not supported by the SDK yet.
 
-            String regionId;
-            regionId = configFile.get("region");
-            if (regionId != null) {
-                try {
-                    region = Region.fromRegionId(regionId);
-                } catch (IllegalArgumentException e) {
-                    // Proceed by assuming the region id in the config file belongs to OC1 realm.
-                    region = Region.register(regionId, Realm.OC1);
-                }
-            } else {
-                System.err.println("Region not specified in Config file. Proceeding without setting a region.");
+        String regionId;
+        regionId = configFile.get("region");
+        if (regionId != null) {
+            try {
+                region = Region.fromRegionId(regionId);
+            } catch (IllegalArgumentException e) {
+                // Proceed by assuming the region id in the config file belongs to OC1 realm.
+                region = Region.register(regionId, Realm.OC1);
             }
+        } else {
+            System.err.println("Region not specified in Config file. Proceeding without setting a region.");
+        }
     }
 //
 //    FakeAuthenticationDetailsProvider(FederationClient client, SessionKeySupplier supplier, Region r) {
@@ -101,17 +117,16 @@ public class FakeAuthenticationDetailsProvider extends AbstractRequestingAuthent
 //    }
 
 
-
     public static ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder builder() {
         try {
-            System.err.println("WOOP RUNNING THE FAKE");
+            System.out.println("Inside fake builder");
             Class<?> builderClas = FakeAuthenticationDetailsProvider.class.getClassLoader().loadClass(ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder.class.getName());
 
 
             Constructor<?> cons =
                     builderClas.getDeclaredConstructor();
             cons.setAccessible(true);
-            return (ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder)cons.newInstance();
+            return (ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder) cons.newInstance();
 
 
         } catch (Exception e) {
@@ -121,9 +136,9 @@ public class FakeAuthenticationDetailsProvider extends AbstractRequestingAuthent
     }
 
     public static class FakeBuilder {
-        public static  ResourcePrincipalAuthenticationDetailsProvider build() {
+        public static ResourcePrincipalAuthenticationDetailsProvider build() {
 
-            System.out.println("MY RESOURCE PRINCIPAL AUTH PROV");
+            System.out.println("Inside fake build");
 
 
 //            final String tenantId = ResourcePrincipalAuthenticationDetailsProvider.tenantId;
@@ -194,14 +209,18 @@ public class FakeAuthenticationDetailsProvider extends AbstractRequestingAuthent
 
 
                 Constructor<?> cons =
-                        builderCgetDeclaredConstructor(FederationClient.class,SessionKeySupplier.class,Region.class);
+                        builderClas.getDeclaredConstructor(FederationClient.class, SessionKeySupplier.class, Region.class);
                 cons.setAccessible(true);
-                return (ResourcePrincipalAuthenticationDetailsProvider)cons.newInstance(null,null,null);
+
+                return (ResourcePrincipalAuthenticationDetailsProvider) cons.newInstance(null, null, null);
 
 
             } catch (Exception e) {
+//                for (StackTraceElement m : e.getStackTrace())
+//                    System.out.println(m);
                 throw new RuntimeException(e);
-            }        }
+            }
+        }
     }
 
 
@@ -211,7 +230,7 @@ public class FakeAuthenticationDetailsProvider extends AbstractRequestingAuthent
     }
 
 
-    public static class ResourcePrincipalAuthenticationDetailsProviderBuilder  {
+    public static class ResourcePrincipalAuthenticationDetailsProviderBuilder {
 
 //        ResourcePrincipalAuthenticationDetailsProviderBuilder() {
 //        }
@@ -223,7 +242,7 @@ public class FakeAuthenticationDetailsProvider extends AbstractRequestingAuthent
          * @return ResourcePrincipalAuthenticationDetailsProvider
          */
 
-       // @Advice.OnMethodEnter
+        // @Advice.OnMethodEnter
     }
 
     public String getFingerprint() {

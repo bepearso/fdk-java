@@ -4,7 +4,9 @@ import com.fnproject.fn.runtime.EntryPoint;
 import com.fnproject.fn.runtime.EventCodec;
 import com.oracle.bmc.auth.ResourcePrincipalAuthenticationDetailsProvider;
 import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.dynamic.ClassFileLocator;
+import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.implementation.SuperMethodCall;
 import net.bytebuddy.matcher.ElementMatchers;
@@ -47,6 +49,20 @@ public class FnTestingClassLoader extends ClassLoader {
         return false;
     }
 
+    public Class<?> getClass(Map<String, Class<?>> loaded, String className, byte[] clsBytes) {
+        Class<?> cls = defineClass(className, clsBytes, 0, clsBytes.length);
+        resolveClass(cls);
+        loaded.put(className,cls);
+        return cls;
+    };
+
+    public void loadInClass(Map<String, Class<?>> loaded, String className, byte[] clsBytes) {
+        Class<?> cls = defineClass(className, clsBytes, 0, clsBytes.length);
+        resolveClass(cls);
+        loaded.put(className,cls);
+    };
+
+
 
     @Override
     public synchronized Class<?> loadClass(String className) throws ClassNotFoundException {
@@ -57,48 +73,66 @@ public class FnTestingClassLoader extends ClassLoader {
         }
 
 
+
+
         if (className.equals(ResourcePrincipalAuthenticationDetailsProvider.class.getName())) {
-            byte[] clsBytes = new byte[0];
+            byte[] clsBytes ;
+            DynamicType.Unloaded<ResourcePrincipalAuthenticationDetailsProvider> builderType;
             try {
-                clsBytes = new ByteBuddy()
+               builderType = new ByteBuddy()
                         .rebase(ResourcePrincipalAuthenticationDetailsProvider.class, ClassFileLocator.ForClassLoader.of(this))
                         .constructor(ElementMatchers.any())
                         .intercept(MethodDelegation.to(FakeAuthenticationDetailsProvider.class.getDeclaredConstructor()).andThen(SuperMethodCall.INSTANCE))
-
                         .method(named("builder"))
                         .intercept(MethodDelegation.to(FakeAuthenticationDetailsProvider.class))
-                        .make()
+                        .make();
+                clsBytes = builderType
                         .getBytes();
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
+//                FileUtils.writeByteArrayToFile(new File("/tmp/osx.classByteFile"), clsBytes);
+
+
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
 
+            for(Map.Entry<TypeDescription,byte[]> e : builderType.getAuxiliaryTypes().entrySet()){
+                byte[] auxBytes = e.getValue();
+                loadInClass(loaded, e.getKey().getName(), auxBytes);
+            }
 
-            Class<?> cls = defineClass(className, clsBytes, 0, clsBytes.length);
-            resolveClass(cls);
-            loaded.put(className,cls);
-            return cls;
+            return getClass(loaded, className, clsBytes);
 
         }
 
         if (className.equals(ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder.class.getName())) {
-            System.out.println("Bytebuddy builder!");
-            byte[] clsBytes = new ByteBuddy()
-                    .redefine(ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder.class, ClassFileLocator.ForClassLoader.of(this))
-                    .method(named("build"))
-                    .intercept(MethodDelegation.to(FakeAuthenticationDetailsProvider.FakeBuilder.class))
-                    .make()
+            DynamicType.Unloaded<ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder> buildtype = null;
+            try {
+                try {
+                    buildtype = new ByteBuddy()
+                            .rebase(ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder.class, ClassFileLocator.ForClassLoader.of(this))
+                            .constructor(ElementMatchers.any())
+                            .intercept(MethodDelegation.to((FakeAuthenticationDetailsProvider.builder())))
+                            .method(named("build"))
+                            .intercept(MethodDelegation.to(FakeAuthenticationDetailsProvider.FakeBuilder.class))
+                            .make();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            byte[] clsBytes = buildtype
                     .getBytes();
 
-            System.out.println("bout to define class");
-            Class<?> cls = defineClass(className, clsBytes, 0, clsBytes.length);
-            System.out.println("bout to resolve class");
-            resolveClass(cls);
-            System.out.println("WUP");
-            loaded.put(className,cls);
-            return cls;
+            for(Map.Entry<TypeDescription,byte[]> e : buildtype.getAuxiliaryTypes().entrySet()){
+                byte[] auxBytes = e.getValue();
+                loadInClass(loaded, e.getKey().getName(), auxBytes);
+            }
+
+            return getClass(loaded, className, clsBytes);
 
         }
+
         Class<?> cls = null;
         if (isShared(className) || className.contains("auxiliary")) {
             cls = getParent().loadClass(className);

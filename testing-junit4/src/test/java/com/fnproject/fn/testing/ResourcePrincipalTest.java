@@ -94,9 +94,7 @@ public class ResourcePrincipalTest {
         public static void test(){
             // --------------------- Resource Principals Provider ---------------------
             final ResourcePrincipalAuthenticationDetailsProvider provider;
-            ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder builder = ResourcePrincipalAuthenticationDetailsProvider.builder();
-
-            provider = builder.build();
+            provider = ResourcePrincipalAuthenticationDetailsProvider.builder().build();
             // --------------------- Resource Principals Provider ---------------------
 
 //        final AuthenticationDetailsProvider provider;
@@ -126,7 +124,6 @@ public class ResourcePrincipalTest {
         Class<?> clazz = cl.loadClass(ResourcePrincipalAuthenticationDetailsProvider.class.getName());
 
         Class<?> clazz2 = cl.loadClass(ResourcePrincipalAuthenticationDetailsProvider.ResourcePrincipalAuthenticationDetailsProviderBuilder.class.getName());
-        System.out.println(clazz2);
 
         Method buildMethod = clazz.getMethod("builder");
 
